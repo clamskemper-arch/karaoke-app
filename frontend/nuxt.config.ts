@@ -1,4 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+// Basis-Pfad: lokal "/", auf GitHub Pages "/karaoke-app/" (per NUXT_APP_BASE_URL
+// im Deploy-Workflow gesetzt). Wird fuer app.baseURL, die PWA-Icons und den
+// Service-Worker-Fallback gebraucht.
+const baseURL = process.env.NUXT_APP_BASE_URL || '/'
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
@@ -9,7 +15,7 @@ export default defineNuxtConfig({
   // Reine SPA: die App ist ein persoenliches Karaoke-Tool ohne SEO-Bedarf, haengt
   // an Browser-APIs (Web Audio, getUserMedia, IndexedDB) und soll offline laufen.
   // SSR wuerde hier nur Hydration-Mismatches und einen Node-Server beim Deploy
-  // bringen - so reicht `nuxt generate` + statisches HTTPS-Hosting.
+  // bringen - so reicht `nuxt generate` + statisches HTTPS-Hosting (GitHub Pages).
   ssr: false,
 
   devtools: {
@@ -17,10 +23,11 @@ export default defineNuxtConfig({
   },
 
   app: {
+    baseURL,
     head: {
       htmlAttrs: { lang: 'de' },
       link: [
-        { rel: 'apple-touch-icon', href: '/apple-touch-icon-180x180.png' }
+        { rel: 'apple-touch-icon', href: `${baseURL}apple-touch-icon-180x180.png` }
       ]
     }
   },
@@ -29,10 +36,9 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      // Adresse des Spring-Boot-Backends. In Produktion (Tailscale) per
-      // NUXT_PUBLIC_API_BASE env var auf die Tailscale-IP/MagicDNS-Namen setzen.
-      // Leer lassen ist erlaubt: dann laeuft die App rein offline mit den
-      // importierten .ksong-Songs aus der Geraete-Bibliothek.
+      // Adresse des Spring-Boot-Backends. Per NUXT_PUBLIC_API_BASE ueberschreibbar
+      // (Tailscale-IP/MagicDNS in Produktion; leer im GitHub-Pages-Build - dort
+      // laeuft die App rein offline mit den importierten .ksong-Songs).
       apiBase: 'http://localhost:8080'
     }
   },
@@ -50,6 +56,8 @@ export default defineNuxtConfig({
 
   pwa: {
     registerType: 'autoUpdate',
+    // start_url / scope / id leitet das Modul aus app.baseURL ab - hier bewusst
+    // nicht hart auf "/" setzen, sonst bricht die installierte PWA unter /karaoke-app/.
     manifest: {
       name: 'Karaoke App',
       short_name: 'Karaoke',
@@ -59,19 +67,17 @@ export default defineNuxtConfig({
       background_color: '#ffffff',
       display: 'standalone',
       orientation: 'portrait',
-      start_url: '/',
-      scope: '/',
       icons: [
-        { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-        { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-        { src: '/maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+        { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+        { src: 'maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
       ]
     },
     workbox: {
       // App-Shell + Assets vorab cachen, damit die App ohne Netz startet.
       // .ksong-Songdaten liegen in IndexedDB, brauchen also kein SW-Caching.
       globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-      navigateFallback: '/',
+      navigateFallback: baseURL,
       cleanupOutdatedCaches: true
     },
     client: {

@@ -52,6 +52,20 @@ python convert_choir.py "input/lied.json" "output/lied"
 Jeder Lauf schreibt zusätzlich ein `song.ksong` (ZIP mit Manifest + AAC-Audio + Lyrics)
 für den Offline-Import in die App.
 
+## Deployment (GitHub Pages)
+
+`.github/workflows/deploy.yml` baut bei jedem Push auf `main` das Frontend
+(`nuxt generate`, `NUXT_APP_BASE_URL=/karaoke-app/`) und veröffentlicht
+`frontend/.output/public` auf GitHub Pages →
+`https://clamskemper-arch.github.io/karaoke-app/`.
+
+Einmalig im Repo: **Settings → Pages → Source: GitHub Actions** (der Workflow
+versucht das per `actions/configure-pages` selbst zu setzen).
+
+Die Pages-Version läuft **ohne Backend** (`NUXT_PUBLIC_API_BASE=""`): kein
+Song-Upload, keine Server-Bestenliste – nur der Offline-Betrieb mit importierten
+`.ksong`-Songs. Mikrofon funktioniert, weil Pages HTTPS liefert.
+
 ## `.ksong`-Format
 
 ZIP mit `manifest.json` (`ksongVersion`, `title`, `tracks[]`) und je Stimme
