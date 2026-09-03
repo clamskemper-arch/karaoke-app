@@ -1,5 +1,9 @@
 name: Deploy to GitHub Pages
 
+# Einmalig im Repo: Settings -> Pages -> Source: "GitHub Actions".
+# (Der GITHUB_TOKEN darf die Pages-Site nicht selbst per API anlegen -
+#  "Resource not accessible by integration" -, deshalb kein configure-pages hier.)
+
 on:
   push:
     branches: [main]
@@ -24,19 +28,13 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      # Aktiviert GitHub Pages mit "GitHub Actions" als Quelle, falls noch nicht
-      # geschehen. Schlaegt das fehl: Repo -> Settings -> Pages -> Source: GitHub Actions.
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - run: npm ci
 
