@@ -1,7 +1,7 @@
 package de.lamskemper.karaoke.share;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.PathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -187,7 +187,7 @@ public class ShareController {
                 .contentType(MediaType.parseMediaType("application/zip"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + name + "\"")
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .body(new PathResource(file));
+                .body(new FileSystemResource(file));
     }
 
     private static String htmlEscape(String s) {

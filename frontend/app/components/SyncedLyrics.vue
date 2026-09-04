@@ -40,11 +40,17 @@ function wordState(word: Word): 'sung' | 'active' | 'upcoming' {
 
 <template>
   <div class="flex flex-col items-center gap-2 py-6 text-center select-none">
-    <p v-if="notStartedYet" class="text-lg text-muted">
+    <p
+      v-if="notStartedYet"
+      class="text-lg text-muted"
+    >
       Gleich geht's los...
     </p>
 
-    <p v-else-if="currentLine" class="text-2xl font-bold leading-snug">
+    <p
+      v-else-if="currentLine"
+      class="text-2xl font-bold leading-snug"
+    >
       <span
         v-for="(word, i) in currentLine.words"
         :key="i"
@@ -57,7 +63,10 @@ function wordState(word: Word): 'sung' | 'active' | 'upcoming' {
       >{{ word.word + ' ' }}</span>
     </p>
 
-    <p v-if="nextLine" class="text-base text-muted">
+    <p
+      v-if="nextLine"
+      class="text-base text-muted"
+    >
       {{ nextLine.line }}
     </p>
   </div>

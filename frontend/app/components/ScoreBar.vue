@@ -47,7 +47,10 @@ const feedbackLabel = computed(() => props.feedback ? feedbackLabels[props.feedb
         </span>
       </div>
 
-      <div v-if="isMicActive" class="flex items-center gap-5 text-sm">
+      <div
+        v-if="isMicActive"
+        class="flex items-center gap-5 text-sm"
+      >
         <div class="text-right">
           <div class="font-bold">
             {{ percentage }}%
@@ -67,6 +70,11 @@ const feedbackLabel = computed(() => props.feedback ? feedbackLabels[props.feedb
       </div>
     </div>
 
-    <UAlert v-if="micError" color="error" variant="subtle" :title="micError" />
+    <UAlert
+      v-if="micError"
+      color="error"
+      variant="subtle"
+      :title="micError"
+    />
   </div>
 </template>
