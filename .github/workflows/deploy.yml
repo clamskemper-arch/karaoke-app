@@ -46,9 +46,9 @@ jobs:
           # Kein Backend auf Pages: App laeuft offline mit importierten .ksong-Songs
           NUXT_PUBLIC_API_BASE: ""
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: frontend/.output/public
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

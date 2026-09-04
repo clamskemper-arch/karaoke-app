@@ -9,7 +9,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.127",
@@ -24,6 +25,7 @@
     "@vite-pwa/nuxt": "^1.1.1",
     "eslint": "^10.9.1",
     "typescript": "^6.0.3",
+    "vitest": "^3.2.7",
     "vue-tsc": "^3.3.11"
   }
 }
