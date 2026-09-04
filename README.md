@@ -63,10 +63,12 @@ Settings → Pages → Source: GitHub Actions. Ohne konfiguriertes Backend läuf
 die Pages-Version rein offline (nur importierte `.ksong`-Songs); Mikrofon geht,
 weil Pages HTTPS liefert.
 
-**Backend** – Docker-Container (`backend/Dockerfile`, `docker-compose.yml`) auf
-einem 24/7-Rechner, von aussen nur über `tailscale serve` (HTTPS, nur Tailnet)
-erreichbar. `/data`-Volume hält H2-DB + hochgeladene Songs. Danach
-`NUXT_PUBLIC_API_BASE` im Pages-Workflow auf den MagicDNS-Namen setzen.
+**Backend** – läuft 24/7 auf Christians Windows-Rechner als native Java-Jar
+(`scripts\backend-service.ps1`, Autostart via `shell:startup`, optional als
+Scheduled Task). Docker-Variante (`backend/Dockerfile`, `docker-compose.yml`) für
+einen späteren Linux-Rechner vorbereitet. Von aussen nur über `tailscale serve`
+(HTTPS, nur Tailnet) erreichbar; danach `NUXT_PUBLIC_API_BASE` im Pages-Workflow
+auf den MagicDNS-Namen setzen. Details: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## `.ksong`-Format
 

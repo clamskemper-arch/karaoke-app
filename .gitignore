@@ -19,6 +19,9 @@ konverter/venv/
 # --- Laufzeit-Song-Speicher (vom Backend verwaltet, hochgeladene Artefakte) ---
 /data/
 
+# --- Lokaler 24/7-Deploy (Jar-Kopie + Logs, siehe scripts/install-backend-service.ps1) ---
+/deploy/
+
 # --- Konverter Ein-/Ausgabe ---
 # input/ enthaelt teils urheberrechtlich geschuetztes Quellmaterial und grosse
 # Mediendateien; output/ ist alles generierbar. Nur die gemeinfreie Test-MIDI

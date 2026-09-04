@@ -5,78 +5,115 @@ Zwei getrennte Teile:
 | Teil | Wo | Wie |
 |---|---|---|
 | **Frontend** | GitHub Pages (öffentlich, HTTPS) | `.github/workflows/deploy.yml`, automatisch bei Push auf `main` |
-| **Backend** | eigener 24/7-Rechner, nur im Tailnet | Docker-Container hinter `tailscale serve` |
+| **Backend** | Christians 24/7-Rechner, nur im Tailnet | native Java-Jar (Windows) **oder** Docker; erreichbar über `tailscale serve` |
 
 Die Pages-Version läuft ohne Backend (nur Offline-`.ksong`). Für Upload über die
 UI und geteilte Bestenliste muss das Backend laufen **und** die Pages-App darauf
-zeigen (siehe Schritt 4).
+zeigen (Schritt „Frontend verdrahten").
 
 ---
 
-## Backend
+## Backend — Variante A: nativ auf diesem Windows-Rechner (aktuell in Betrieb)
 
-### Voraussetzungen auf dem Server
+Kein Docker nötig. Voraussetzung: Java 21 (Temurin, ist installiert).
 
-- Docker (Engine + Compose-Plugin)
-- Tailscale, im selben Tailnet wie Christian + Eli, mit aktiviertem MagicDNS + HTTPS
-  (`Enable HTTPS` in den Tailnet-Einstellungen)
+`scripts\backend-service.ps1` erledigt Build, Deploy und Autostart:
 
-### 1. Container bauen & starten
+```powershell
+# aus C:\ki\karaoke-app
+powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 update      # baut + startet neu
+powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 status
+powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 stop
+```
+
+- Läuft mit Arbeitsverzeichnis `backend\`, damit die relativen Pfade aus
+  `application.properties` greifen: H2-DB `backend\data\karaoke-db.*`,
+  Song-Dateien `data\songs\{id}\` — also **dieselben Daten wie im Dev-Betrieb**.
+- Läuft die Jar-Kopie unter `deploy\karaoke-app.jar`, Logs unter
+  `deploy\logs\backend.log` (rotiert, 7 Tage). `deploy\` ist gitignored.
+- Health: `curl http://localhost:8080/actuator/health` → `{"status":"UP"}`.
+
+### Autostart / 24/7
+
+`install` versucht zuerst einen **Scheduled Task** (Trigger: Anmeldung + Systemstart,
+Auto-Neustart bei Absturz). Das braucht **eine PowerShell "als Administrator"**:
+
+```powershell
+# elevated PowerShell
+cd C:\ki\karaoke-app
+powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 install
+# optional: auch ohne aktive Anmeldung weiterlaufen lassen (S4U)
+powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 install -RunWhenLoggedOff
+```
+
+Ohne Admin fällt das Skript automatisch auf eine **Autostart-Verknüpfung** zurück
+(`shell:startup` → `start-backend-hidden.vbs`): startet bei jeder Anmeldung, aber
+**kein** automatischer Neustart nach einem Absturz. Das ist der aktuelle Stand.
+
+Manuell umschalten: `... install-startup` bzw. `... uninstall` / `... uninstall-startup`.
+
+### Updaten
+
+```powershell
+git pull
+powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 update
+```
+
+`ddl-auto=update` zieht Schema-Änderungen automatisch nach.
+
+### Backup
+
+```powershell
+$d = Get-Date -Format yyyy-MM-dd
+Compress-Archive -Path C:\ki\karaoke-app\backend\data\*, C:\ki\karaoke-app\data\songs `
+  -DestinationPath "C:\ki\karaoke-app-backup-$d.zip"
+```
+
+---
+
+## Backend — Variante B: Docker (für einen späteren Linux-Rechner)
+
+`backend/Dockerfile` + `docker-compose.yml` sind vorbereitet.
 
 ```bash
-git clone https://github.com/clamskemper-arch/karaoke-app.git
-cd karaoke-app
+git clone https://github.com/clamskemper-arch/karaoke-app.git && cd karaoke-app
 docker compose up -d --build
 ```
 
-- Der Port wird nur an `127.0.0.1:8080` gebunden – von aussen kommt man nur über
-  `tailscale serve` ran.
-- Persistenz: benanntes Volume `karaoke-data` → `/data` (H2-DB `karaoke-db.*` +
-  hochgeladene Song-Dateien unter `/data/songs/{id}/`).
-- Health: `curl http://127.0.0.1:8080/actuator/health` → `{"status":"UP"}`.
+- Port nur an `127.0.0.1:8080` gebunden.
+- Persistenz im benannten Volume `karaoke-data` → `/data` (H2-DB + `/data/songs/{id}/`).
+- Fertiges Image statt lokalem Build: `.github/workflows/backend-image.yml` baut
+  `ghcr.io/clamskemper-arch/karaoke-app-backend:latest`; auf dem Server
+  `docker login ghcr.io` (PAT mit `read:packages`) + in `docker-compose.yml`
+  `build: ./backend` durch `image: …` ersetzen.
+- Backup: `docker run --rm -v karaoke-data:/data -v "$PWD":/backup alpine tar czf /backup/karaoke-data-$(date +%F).tgz -C /data .`
 
-Alternativ ohne Compose:
+---
 
-```bash
-docker build -t karaoke-app-backend ./backend
-docker run -d --name karaoke-backend --restart unless-stopped \
-  -p 127.0.0.1:8080:8080 \
-  -e KARAOKE_CORS_ORIGINS="https://clamskemper-arch.github.io,https://*.ts.net" \
-  -v karaoke-data:/data \
-  karaoke-app-backend
-```
+## Über Tailscale erreichbar machen (HTTPS, nur Tailnet)
 
-### 2. Fertiges Image statt lokalem Build (optional)
+Ohne das kommt die HTTPS-Pages-App nicht ans HTTP-Backend (Mixed Content).
 
-`.github/workflows/backend-image.yml` baut bei Änderungen unter `backend/` ein
-Image nach `ghcr.io/clamskemper-arch/karaoke-app-backend:latest`. Auf dem Server
-dann nur noch:
+1. **Tailscale installieren** (auf dem Backend-Rechner):
+   ```powershell
+   winget install Tailscale.Tailscale
+   tailscale up
+   ```
+2. **Im Tailnet-Adminkonsole** (login.tailscale.com): MagicDNS aktivieren und
+   „HTTPS Certificates" einschalten. Christian + Eli müssen im selben Tailnet sein.
+3. **Serve einrichten** (macht 8080 als HTTPS nach aussen, nur Tailnet):
+   ```powershell
+   tailscale serve --bg 8080
+   tailscale serve status      # zeigt die URL: https://<host>.<tailnet>.ts.net
+   ```
+4. Prüfen von einem anderen Tailnet-Gerät:
+   `curl https://<host>.<tailnet>.ts.net/actuator/health`
 
-```bash
-docker login ghcr.io                 # einmalig, mit PAT (scope: read:packages)
-docker pull ghcr.io/clamskemper-arch/karaoke-app-backend:latest
-```
+Kein Port-Forwarding, kein offener Port ins Internet.
 
-und in `docker-compose.yml` `build: ./backend` durch
-`image: ghcr.io/clamskemper-arch/karaoke-app-backend:latest` ersetzen.
-(Oder das Package in den GitHub-Package-Settings auf „public" stellen, dann
-entfällt `docker login`.)
+---
 
-### 3. Über Tailscale erreichbar machen (HTTPS, nur Tailnet)
-
-```bash
-sudo tailscale serve --bg 8080
-```
-
-Danach ist das Backend unter `https://<hostname>.<tailnet>.ts.net/` erreichbar –
-nur für Geräte im Tailnet, kein offener Port ins Internet. Prüfen:
-
-```bash
-tailscale serve status
-curl https://<hostname>.<tailnet>.ts.net/actuator/health
-```
-
-### 4. Frontend auf das Backend zeigen lassen
+## Frontend auf das Backend verdrahten
 
 `NUXT_PUBLIC_API_BASE` im Pages-Workflow (`.github/workflows/deploy.yml`) auf den
 MagicDNS-Namen setzen:
@@ -86,37 +123,22 @@ MagicDNS-Namen setzen:
         run: npm run generate
         env:
           NUXT_APP_BASE_URL: /karaoke-app/
-          NUXT_PUBLIC_API_BASE: "https://<hostname>.<tailnet>.ts.net"
+          NUXT_PUBLIC_API_BASE: "https://<host>.<tailnet>.ts.net"
 ```
 
-committen → Pages baut neu. Ab dann:
+committen → Pages baut neu. Danach:
 
 - Gerät **im Tailnet** → „Auf dem Server"-Songs, Upload, Bestenliste funktionieren.
-- Gerät **nicht im Tailnet** → die `/api`-Aufrufe schlagen fehl, die App fällt auf
-  den Offline-`.ksong`-Betrieb zurück (schon so gebaut).
+- Gerät **nicht im Tailnet** → `/api`-Aufrufe schlagen fehl, die App fällt auf den
+  Offline-`.ksong`-Betrieb zurück (so gebaut).
 
-Der MagicDNS-Name steht dann im öffentlichen JS-Bundle – ohne Tailnet-Mitgliedschaft
-ist er nutzlos, das ist Teil der bewussten Tailscale-Entscheidung.
+Der MagicDNS-Name steht dann im öffentlichen JS-Bundle — ohne Tailnet-Mitgliedschaft
+nutzlos, Teil der bewussten Tailscale-Entscheidung.
 
-### CORS
+## CORS
 
 Erlaubte Origins kommen aus `KARAOKE_CORS_ORIGINS` (kommagetrennt, Wildcards wie
 `https://*.ts.net`). Default in `application.properties` deckt lokalen Dev, Tailnet
-und die Pages-App ab. Ändern ohne Rebuild: Env-Var im Container anpassen + neu starten.
-
-### Backup
-
-Alles Wichtige liegt im `karaoke-data`-Volume:
-
-```bash
-docker run --rm -v karaoke-data:/data -v "$PWD":/backup alpine \
-  tar czf /backup/karaoke-data-$(date +%F).tgz -C /data .
-```
-
-### Updaten
-
-```bash
-git pull && docker compose up -d --build      # oder: docker pull ... && docker compose up -d
-```
-
-`ddl-auto=update` zieht Schema-Änderungen automatisch nach.
+(`100.*`, `*.ts.net`) und die Pages-App ab. Ändern ohne Rebuild: Env-Var setzen +
+Backend neu starten (Docker) bzw. `-D`-Property in `scripts\backend-service.ps1`
+ergänzen (nativ).
