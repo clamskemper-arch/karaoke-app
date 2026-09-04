@@ -75,8 +75,11 @@ export default defineNuxtConfig({
     },
     workbox: {
       // App-Shell + Assets vorab cachen, damit die App ohne Netz startet.
-      // .ksong-Songdaten liegen in IndexedDB, brauchen also kein SW-Caching.
-      globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+      // .ksong-Songdaten liegen sonst in IndexedDB und brauchen kein SW-Caching -
+      // Ausnahme sind die Demo-Songs unter public/seed-songs/, die das
+      // seed-demo-songs-Plugin auch beim allerersten Offline-Start importieren
+      // koennen soll.
+      globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,ksong}'],
       navigateFallback: baseURL,
       cleanupOutdatedCaches: true
     },
