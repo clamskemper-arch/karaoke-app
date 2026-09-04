@@ -52,19 +52,21 @@ python convert_choir.py "input/lied.json" "output/lied"
 Jeder Lauf schreibt zusätzlich ein `song.ksong` (ZIP mit Manifest + AAC-Audio + Lyrics)
 für den Offline-Import in die App.
 
-## Deployment (GitHub Pages)
+## Deployment
 
-`.github/workflows/deploy.yml` baut bei jedem Push auf `main` das Frontend
-(`nuxt generate`, `NUXT_APP_BASE_URL=/karaoke-app/`) und veröffentlicht
-`frontend/.output/public` auf GitHub Pages →
-`https://clamskemper-arch.github.io/karaoke-app/`.
+Ausführliche Anleitung: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
-Einmalig im Repo: **Settings → Pages → Source: GitHub Actions** (der Workflow
-versucht das per `actions/configure-pages` selbst zu setzen).
+**Frontend** – `.github/workflows/deploy.yml` baut bei jedem Push auf `main`
+(`nuxt generate`) und veröffentlicht auf GitHub Pages →
+`https://clamskemper-arch.github.io/karaoke-app/`. Einmalig im Repo:
+Settings → Pages → Source: GitHub Actions. Ohne konfiguriertes Backend läuft
+die Pages-Version rein offline (nur importierte `.ksong`-Songs); Mikrofon geht,
+weil Pages HTTPS liefert.
 
-Die Pages-Version läuft **ohne Backend** (`NUXT_PUBLIC_API_BASE=""`): kein
-Song-Upload, keine Server-Bestenliste – nur der Offline-Betrieb mit importierten
-`.ksong`-Songs. Mikrofon funktioniert, weil Pages HTTPS liefert.
+**Backend** – Docker-Container (`backend/Dockerfile`, `docker-compose.yml`) auf
+einem 24/7-Rechner, von aussen nur über `tailscale serve` (HTTPS, nur Tailnet)
+erreichbar. `/data`-Volume hält H2-DB + hochgeladene Songs. Danach
+`NUXT_PUBLIC_API_BASE` im Pages-Workflow auf den MagicDNS-Namen setzen.
 
 ## `.ksong`-Format
 

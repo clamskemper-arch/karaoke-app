@@ -1,0 +1,43 @@
+# Backend der Karaoke-App. Frontend liegt auf GitHub Pages (statisch) und ist
+# hier nicht enthalten - siehe docs/DEPLOY.md.
+#
+#   docker compose up -d --build
+#
+# Der Port wird nur an 127.0.0.1 gebunden: von aussen erreichbar wird das Backend
+# ausschliesslich ueber `tailscale serve` (HTTPS, nur Tailnet) - siehe DEPLOY.md.
+
+services:
+  backend:
+    build: ./backend
+    image: karaoke-app-backend:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Kommagetrennt; Default steht in application.properties. Hier ggf. den
+      # konkreten MagicDNS-Namen des Servers eintragen.
+      KARAOKE_CORS_ORIGINS: "https://clamskemper-arch.github.io,https://*.ts.net,http://localhost:*"
+    volumes:
+      - karaoke-data:/data
+
+volumes:
+  karaoke-data:
+
+# --- Variante mit Tailscale-Sidecar (statt `tailscale serve` auf dem Host) ---
+# services:
+#   tailscale:
+#     image: tailscale/tailscale:latest
+#     hostname: karaoke
+#     environment:
+#       TS_AUTHKEY: "${TS_AUTHKEY:?set TS_AUTHKEY}"
+#       TS_SERVE_CONFIG: /config/serve.json   # { "TCP": {"443": {"HTTPS": true}}, "Web": {...} }
+#       TS_STATE_DIR: /var/lib/tailscale
+#     volumes:
+#       - tailscale-state:/var/lib/tailscale
+#       - ./deploy/ts-serve.json:/config/serve.json:ro
+#     cap_add: [net_admin, sys_module]
+#     restart: unless-stopped
+#   backend:
+#     network_mode: service:tailscale   # Backend haengt im Netz-Namespace des Sidecars
+# volumes:
+#   tailscale-state:
