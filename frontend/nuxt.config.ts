@@ -80,6 +80,11 @@ export default defineNuxtConfig({
       // seed-demo-songs-Plugin auch beim allerersten Offline-Start importieren
       // koennen soll.
       globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,ksong}'],
+      // Default-Limit ist 2 MiB - amazing-grace.ksong (~2,74 MB) faellt sonst
+      // stillschweigend aus dem Precache-Manifest (nur eine Warnung lokal,
+      // im CI-Build aber ein harter Fehler). Grosszuegig auf 5 MB gesetzt,
+      // damit auch etwas groessere zukuenftige Demo-Songs noch reinpassen.
+      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       navigateFallback: baseURL,
       cleanupOutdatedCaches: true
     },
