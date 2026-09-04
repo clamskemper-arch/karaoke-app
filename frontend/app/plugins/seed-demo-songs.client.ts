@@ -18,7 +18,7 @@ const DEMO_SONGS = [
 ]
 
 export default defineNuxtPlugin(async () => {
-  let alreadySeeded = true
+  let alreadySeeded: boolean
   try {
     alreadySeeded = localStorage.getItem(SEEDED_KEY) === '1'
   } catch {
