@@ -152,7 +152,7 @@ const songFinished = computed(() =>
 // Mikrofon + Live-Scoring (siehe usePitchDetector / useSingingScore) - jetzt
 // gegen die Lyrics/Zeit der gewaehlten Stimme statt fest verdrahtet
 const { currentHz, isActive: isMicActive, errorMessage: micError, level: micLevel, deviceLabel: micDevice, start: startMic, stop: stopMic } = usePitchDetector()
-const { percentage, combo, bestCombo, feedback } = useSingingScore(lines, mixer.currentTime, currentHz, isMicActive)
+const { percentage, combo, bestCombo, feedback, wordResults } = useSingingScore(lines, mixer.currentTime, currentHz, isMicActive)
 
 function toggleMic() {
   if (isMicActive.value) {
@@ -242,6 +242,12 @@ watch(songFinished, (finished) => {
 
 const showScoreBox = computed(() =>
   songFinished.value && isMicActive.value && !scoreDismissed.value
+)
+
+// Ton-fuer-Ton-Rueckblick: bleibt auch sichtbar, wenn die Speichern-Box schon
+// weggeklickt wurde (scoreDismissed) - das ist ja eine eigene Frage.
+const showRecap = computed(() =>
+  songFinished.value && isMicActive.value && wordResults.value.length > 0
 )
 
 async function saveScore() {
@@ -488,6 +494,12 @@ async function saveScore() {
           Gespeichert als {{ playerName.trim() }}.
         </div>
       </div>
+
+      <SongRecap
+        v-if="showRecap"
+        :lines="lines ?? []"
+        :word-results="wordResults"
+      />
 
       <div
         v-if="scores.length"

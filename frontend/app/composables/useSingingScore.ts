@@ -2,10 +2,25 @@ interface Word { word: string, start: number, end: number, midi: number | null, 
 interface Line { line: string, start: number, end: number, words: Word[] }
 
 export type PitchFeedback = 'perfect' | 'good' | 'off' | null
+export type WordHitState = 'hit' | 'miss' | 'skipped'
+
+export interface WordResult {
+  key: string
+  line: string
+  word: string
+  start: number
+  end: number
+  midi: number
+  state: WordHitState
+}
 
 const POINTS_PER_SECOND = 10
 const PERFECT_TOLERANCE = 1 // Halbtoene
 const GOOD_TOLERANCE = 3
+
+function wordKey(w: Pick<Word, 'start'>): string {
+  return String(w.start)
+}
 
 /**
  * Bewertet die live per Mikrofon erkannte Tonhoehe gegen die Zielnoten aus
@@ -25,6 +40,12 @@ export function useSingingScore(
   const bestCombo = ref(0)
   const feedback = ref<PitchFeedback>(null)
 
+  // Pro Wort mitgeschriebene Treffer/Versuche, damit sich am Songende
+  // nachvollziehen laesst, welche Toene getroffen wurden - siehe wordResults
+  // unten. Reactive Map, nicht Ref<Map>, damit einzelne .set()-Aufrufe
+  // Reaktivitaet auf wordResults ausloesen.
+  const wordSamples = reactive(new Map<string, { hits: number, total: number }>())
+
   let lastTime = -1
 
   function reset() {
@@ -33,6 +54,7 @@ export function useSingingScore(
     combo.value = 0
     bestCombo.value = 0
     feedback.value = null
+    wordSamples.clear()
     lastTime = -1
   }
 
@@ -71,6 +93,12 @@ export function useSingingScore(
 
     if (currentHz.value) {
       const diff = Math.abs(hzToMidi(currentHz.value) - activeWord.midi)
+      const key = wordKey(activeWord)
+      const rec = wordSamples.get(key) ?? { hits: 0, total: 0 }
+      rec.total++
+      if (diff <= PERFECT_TOLERANCE) rec.hits++
+      wordSamples.set(key, rec)
+
       if (diff <= PERFECT_TOLERANCE) {
         score.value += POINTS_PER_SECOND * dt
         combo.value++
@@ -98,5 +126,25 @@ export function useSingingScore(
     maxScore.value > 0 ? Math.round((score.value / maxScore.value) * 100) : 0
   ))
 
-  return { score, percentage, combo, bestCombo, feedback, reset }
+  // Rueckblick fuers Songende: pro gesungenem Wort, ob getroffen ("hit",
+  // Mehrheit der Samples im Toleranzband), verfehlt ("miss") oder gar nicht
+  // erfasst ("skipped" - Mikro war da noch aus, oder das Wort kam nie dran).
+  const wordResults = computed<WordResult[]>(() => {
+    const list = lines.value
+    if (!list) return []
+    const out: WordResult[] = []
+    for (const line of list) {
+      for (const w of line.words) {
+        if (w.midi === null) continue
+        const rec = wordSamples.get(wordKey(w))
+        const state: WordHitState = !rec || rec.total < 2
+          ? 'skipped'
+          : (rec.hits / rec.total >= 0.5 ? 'hit' : 'miss')
+        out.push({ key: wordKey(w), line: line.line, word: w.word, start: w.start, end: w.end, midi: w.midi, state })
+      }
+    }
+    return out
+  })
+
+  return { score, percentage, combo, bestCombo, feedback, wordResults, reset }
 }
