@@ -20,7 +20,33 @@ const importing = ref(false)
 const importError = ref('')
 const importedTitle = ref('')
 
-onMounted(() => refreshLibrary())
+// Optionaler Heim-Server: einmal die IP des Rechners eingeben (gemerkt im
+// localStorage), dann fuehrt der Link auf dessen .ksong-Liste (GET /songs).
+// Direktes Laden aus der App geht nicht (HTTPS-Seite -> HTTP-LAN = Mixed
+// Content), daher nur ein Link zum manuellen Download + anschliessendem Import.
+const SHARE_HOST_KEY = 'karaoke:shareHost'
+const shareHost = ref('')
+const shareUrl = computed(() => {
+  const h = shareHost.value.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+  if (!h) return ''
+  return `http://${h.includes(':') ? h : `${h}:8080`}/songs`
+})
+
+onMounted(() => {
+  refreshLibrary()
+  try {
+    shareHost.value = localStorage.getItem(SHARE_HOST_KEY) ?? ''
+  } catch {
+    // localStorage nicht verfuegbar - dann halt kein Merken
+  }
+})
+watch(shareHost, (v) => {
+  try {
+    localStorage.setItem(SHARE_HOST_KEY, v.trim())
+  } catch {
+    // s.o.
+  }
+})
 
 async function onKsongChange(e: Event) {
   const input = e.target as HTMLInputElement
@@ -464,6 +490,33 @@ async function registerMultitrack() {
           variant="subtle"
           :title="importError"
         />
+
+        <div class="border-t border-default pt-3 flex flex-col gap-1.5">
+          <span class="text-xs text-muted">
+            Songs vom Heim-Server holen: IP des Rechners eingeben, Liste öffnen,
+            Datei herunterladen, dann oben importieren.
+          </span>
+          <div class="flex flex-wrap items-center gap-2">
+            <UInput
+              v-model="shareHost"
+              placeholder="192.168.178.102"
+              size="xs"
+              class="w-40"
+            />
+            <UButton
+              v-if="shareUrl"
+              :to="shareUrl"
+              target="_blank"
+              external
+              size="xs"
+              variant="subtle"
+              color="neutral"
+              icon="i-lucide-external-link"
+            >
+              Song-Liste öffnen
+            </UButton>
+          </div>
+        </div>
       </div>
 
       <p

@@ -19,8 +19,12 @@ konverter/venv/
 # --- Laufzeit-Song-Speicher (vom Backend verwaltet, hochgeladene Artefakte) ---
 /data/
 
-# --- Lokaler 24/7-Deploy (Jar-Kopie + Logs, siehe scripts/install-backend-service.ps1) ---
+# --- Lokaler 24/7-Deploy (Jar-Kopie + Logs, siehe scripts/backend-service.ps1) ---
 /deploy/
+
+# --- Heimnetz-Download-Ordner: .ksong-Bundles generierbar, nur die README bleibt ---
+/share/*
+!/share/README.md
 
 # --- Konverter Ein-/Ausgabe ---
 # input/ enthaelt teils urheberrechtlich geschuetztes Quellmaterial und grosse

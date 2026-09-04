@@ -4,8 +4,9 @@
   (per Scheduled Task - kein Docker, kein Extra-Tool noetig).
 
 .DESCRIPTION
-  install   Jar aus backend/target nach deploy/ kopieren, Task anlegen, starten
-  update    Neu bauen (mvnw), Jar aktualisieren, Task neu starten
+  install   Jar nach deploy/ kopieren, Task anlegen + Firewall (TCP 8080) oeffnen, starten
+  update    Neu bauen (mvnw), Jar aktualisieren, Backend neu starten
+  allow-lan Nur die Firewall-Regel fuer den Heimnetz-Zugriff (braucht Admin)
   start / stop / restart / status / uninstall  wie erwartet
 
   Der Task laeuft mit Arbeitsverzeichnis backend/, damit die relativen Pfade aus
@@ -25,7 +26,7 @@
 param(
   [Parameter(Position = 0)]
   [ValidateSet('install', 'update', 'start', 'stop', 'restart', 'status', 'uninstall',
-    'install-startup', 'uninstall-startup')]
+    'install-startup', 'uninstall-startup', 'allow-lan')]
   [string]$Action = 'status',
 
   [switch]$RunWhenLoggedOff
@@ -33,6 +34,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $TaskName  = 'KaraokeBackend'
+$FwRule    = 'Karaoke Backend (LAN 8080)'
 $RepoRoot  = Split-Path -Parent $PSScriptRoot
 $BackendDir = Join-Path $RepoRoot 'backend'
 $DeployDir = Join-Path $RepoRoot 'deploy'
@@ -129,6 +131,22 @@ function Stop-BackendProcess {
   if ($procs) { Write-Host "gestoppt (PID $($procs.ProcessId -join ', '))." } else { Write-Host 'kein laufender Backend-Prozess.' }
 }
 
+function Add-FirewallRule {
+  # Eingehend TCP 8080 im privaten Profil (Heimnetz) erlauben - sonst blockt
+  # die Windows-Firewall den Zugriff vom Handy auf http://<pc-ip>:8080.
+  if (Get-NetFirewallRule -DisplayName $FwRule -ErrorAction SilentlyContinue) {
+    Write-Host "Firewall-Regel '$FwRule' existiert bereits."
+    return
+  }
+  New-NetFirewallRule -DisplayName $FwRule -Direction Inbound -Protocol TCP `
+    -LocalPort 8080 -Action Allow -Profile Private | Out-Null
+  Write-Host "Firewall-Regel '$FwRule' angelegt (TCP 8080, privates Netz)." -ForegroundColor Green
+}
+
+function Remove-FirewallRule {
+  Get-NetFirewallRule -DisplayName $FwRule -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+}
+
 function Wait-Health {
   Write-Host -NoNewline 'Warte auf /actuator/health '
   foreach ($i in 1..40) {
@@ -156,6 +174,11 @@ function Show-Status {
   Write-Host ("Port 8080: " + $(if ($port) { "belegt (PID $($port[0].OwningProcess))" } else { "frei" }))
   try { $h = Invoke-RestMethod $HealthUrl -TimeoutSec 2; Write-Host "Health: $($h.status)" -ForegroundColor Green }
   catch { Write-Host "Health: nicht erreichbar" -ForegroundColor Yellow }
+  $fw = Get-NetFirewallRule -DisplayName $FwRule -ErrorAction SilentlyContinue
+  Write-Host ("Firewall (LAN 8080): " + $(if ($fw) { "offen" } else { "zu - 'allow-lan' (Admin) fuer Handy-Zugriff" }))
+  $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254)' } | Select-Object -First 1).IPAddress
+  if ($ip) { Write-Host "Song-Liste im Heimnetz: http://${ip}:8080/songs" }
 }
 
 $hasTask = { [bool](Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) }
@@ -163,9 +186,11 @@ $hasTask = { [bool](Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyC
 switch ($Action) {
   'install' {
     Copy-Jar
+    $elevated = $false
     try {
       Register-Task
       Start-ScheduledTask -TaskName $TaskName
+      $elevated = $true
     } catch {
       Write-Host "Scheduled Task nicht moeglich ($($_.Exception.Message))." -ForegroundColor Yellow
       Write-Host 'Fallback: Autostart-Verknuepfung (kein Admin, kein Auto-Neustart bei Absturz).' -ForegroundColor Yellow
@@ -173,8 +198,15 @@ switch ($Action) {
       Install-StartupLauncher
       Stop-BackendProcess; Start-Sleep 1; Start-ViaVbs
     }
+    try { Add-FirewallRule }
+    catch {
+      Write-Host "Firewall-Regel nicht moeglich ($($_.Exception.Message))." -ForegroundColor Yellow
+      Write-Host "Fuer LAN-Zugriff (Handy -> http://<pc-ip>:8080): PowerShell als Administrator ->" -ForegroundColor Yellow
+      Write-Host "  scripts\backend-service.ps1 allow-lan" -ForegroundColor Yellow
+    }
     Wait-Health | Out-Null; Show-Status
   }
+  'allow-lan' { Add-FirewallRule }
   'update' {
     Build-Jar; Copy-Jar
     if (& $hasTask) {
@@ -210,6 +242,7 @@ switch ($Action) {
       Write-Host "Task '$TaskName' entfernt."
     }
     if (Test-Path $StartupLnk) { Remove-Item $StartupLnk -Force; Write-Host 'Autostart-Verknuepfung entfernt.' }
+    try { Remove-FirewallRule } catch { }
     Stop-BackendProcess
     Write-Host '(deploy/ + Daten bleiben.)'
   }
