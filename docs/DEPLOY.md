@@ -5,15 +5,44 @@ Zwei getrennte Teile:
 | Teil | Wo | Wie |
 |---|---|---|
 | **Frontend** | GitHub Pages (öffentlich, HTTPS) | `.github/workflows/deploy.yml`, automatisch bei Push auf `main` |
-| **Backend** | Christians 24/7-Rechner, nur im Tailnet | native Java-Jar (Windows) **oder** Docker; erreichbar über `tailscale serve` |
+| **Backend** | Christians 24/7-Rechner | native Java-Jar (Windows, aktuell) **oder** Docker; im Heimnetz direkt, von unterwegs über `tailscale serve` |
 
-Die Pages-Version läuft ohne Backend (nur Offline-`.ksong`). Für Upload über die
-UI und geteilte Bestenliste muss das Backend laufen **und** die Pages-App darauf
-zeigen (Schritt „Frontend verdrahten").
+Die Pages-Version läuft ohne Backend (nur Offline-`.ksong`).
+
+Es gibt zwei Wege, wie Songs aufs Handy kommen:
+
+- **A · `.ksong` im Heimnetz herunterladen** (empfohlen, kein Tailscale) — das
+  Backend stellt vorbereitete Bundles unter `/songs` bereit, das Handy lädt sie
+  im Browser und importiert sie in der PWA. Kein Backend-HTTPS nötig.
+- **B · Voller Client-Server-Betrieb** (Upload über die UI, geteilte Bestenliste)
+  — dafür muss die Pages-App per HTTPS ans Backend, also über `tailscale serve`.
 
 ---
 
-## Backend — Variante A: nativ auf diesem Windows-Rechner (aktuell in Betrieb)
+## Variante A — `.ksong` im Heimnetz herunterladen
+
+Kein Tailscale, kein Zertifikat. Die HTTPS-App lädt **nicht** selbst vom Backend
+(das wäre Mixed Content) — der Download läuft über direkte Browser-Navigation.
+
+1. **Backend läuft** (siehe „Backend starten — nativ auf diesem Windows-Rechner").
+   Beim `install` öffnet das Skript die Windows-Firewall für TCP 8080 (privates
+   Netz); sonst einmal elevated: `scripts\backend-service.ps1 allow-lan`.
+2. **Songs ablegen**: `.ksong`-Dateien nach `C:\ki\karaoke-app\share\` kopieren
+   (`Copy-Item konverter\output\<name>\song.ksong share\<name>.ksong`). Der
+   angezeigte Titel kommt aus dem `manifest.json` im Bundle.
+3. **Am Handy** (im Heim-WLAN):
+   - `http://<pc-ip>:8080/songs` im Browser öffnen (die IP zeigt
+     `scripts\backend-service.ps1 status`). Oder in der PWA unter „Auf diesem
+     Gerät" die IP eintragen und „Song-Liste öffnen".
+   - Song antippen → `.ksong` wird heruntergeladen.
+   - PWA → „Auf diesem Gerät" → importieren → die Datei auswählen.
+
+Danach ist der Song dauerhaft in der Geräte-Bibliothek, auch offline und
+unterwegs. Scores bleiben pro Gerät lokal.
+
+---
+
+## Backend starten — nativ auf diesem Windows-Rechner (aktuell in Betrieb)
 
 Kein Docker nötig. Voraussetzung: Java 21 (Temurin, ist installiert).
 
@@ -71,7 +100,7 @@ Compress-Archive -Path C:\ki\karaoke-app\backend\data\*, C:\ki\karaoke-app\data\
 
 ---
 
-## Backend — Variante B: Docker (für einen späteren Linux-Rechner)
+## Backend starten — Docker (für einen späteren Linux-Rechner)
 
 `backend/Dockerfile` + `docker-compose.yml` sind vorbereitet.
 
@@ -90,7 +119,7 @@ docker compose up -d --build
 
 ---
 
-## Über Tailscale erreichbar machen (HTTPS, nur Tailnet)
+## Variante B — voller Client-Server-Betrieb über Tailscale
 
 Ohne das kommt die HTTPS-Pages-App nicht ans HTTP-Backend (Mixed Content).
 
@@ -113,7 +142,7 @@ Kein Port-Forwarding, kein offener Port ins Internet.
 
 ---
 
-## Frontend auf das Backend verdrahten
+### Frontend auf das Backend verdrahten
 
 `NUXT_PUBLIC_API_BASE` im Pages-Workflow (`.github/workflows/deploy.yml`) auf den
 MagicDNS-Namen setzen:
