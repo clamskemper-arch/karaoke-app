@@ -2,7 +2,9 @@
 
 Mitsing-App fürs Chorüben: Songs registrieren, abspielen, Töne treffen. SingStar-artige
 Note-Highway mit vorausschauenden Ton-Balken, synced Lyrics und Live-Tonhöhen-Feedback
-übers Mikrofon. Mehrstimmige Chorsätze mit Stimmwahl und Mixer.
+übers Mikrofon. Mehrstimmige Chorsätze mit Stimmwahl und Mixer. Nach dem Song ein
+Rückblick: Wort-für-Wort-Trefferliste plus eine durchspulbare Noten-Highway mit der
+aufgezeichneten Tonspur.
 
 Das Repo hat drei Teile:
 
@@ -63,9 +65,11 @@ Settings → Pages → Source: GitHub Actions. Ohne konfiguriertes Backend läuf
 die Pages-Version rein offline (nur importierte `.ksong`-Songs); Mikrofon geht,
 weil Pages HTTPS liefert.
 
-**Backend** – läuft 24/7 auf Christians Windows-Rechner als native Java-Jar
-(`scripts\backend-service.ps1`, Autostart via `shell:startup`, optional als
-Scheduled Task). Docker-Variante (`backend/Dockerfile`, `docker-compose.yml`) für
+**Backend** – wird **bei Bedarf** auf Christians Windows-Rechner als native Java-Jar
+gestartet (`scripts\backend-service.ps1 start` / `stop`), kein Dauerbetrieb. Nur
+nötig für den LAN-Song-Download (`/songs`) oder den vollen Client-Server-Betrieb.
+Optionaler Autostart (`shell:startup` oder Scheduled Task) ist im Skript vorbereitet,
+aber nicht aktiv. Docker-Variante (`backend/Dockerfile`, `docker-compose.yml`) für
 einen späteren Linux-Rechner vorbereitet. Von aussen nur über `tailscale serve`
 (HTTPS, nur Tailnet) erreichbar; danach `NUXT_PUBLIC_API_BASE` im Pages-Workflow
 auf den MagicDNS-Namen setzen. Details: [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -81,6 +85,5 @@ ZIP mit `manifest.json` (`ksongVersion`, `title`, `tracks[]`) und je Stimme
 - `konverter/input/` und `konverter/output/` sind bewusst nicht eingecheckt (große
   Mediendateien, teils urheberrechtlich geschütztes Quellmaterial). Einzige Ausnahme:
   die gemeinfreie Test-MIDI `amazing-grace.kar`.
-- `frontend/.github/workflows/ci.yml` liegt unterhalb von `frontend/` und ist damit
-  **keine** aktive GitHub-Action (die müsste unter `/.github/workflows/` liegen) – und
-  nutzt pnpm, während das Projekt npm/`package-lock.json` verwendet.
+- CI-Workflows liegen unter `/.github/workflows/`: `ci.yml` (Lint/Typecheck/Tests
+  für Front- und Backend), `deploy.yml` (Pages), `backend-image.yml` (GHCR-Image).

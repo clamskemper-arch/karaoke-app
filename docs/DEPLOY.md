@@ -5,9 +5,11 @@ Zwei getrennte Teile:
 | Teil | Wo | Wie |
 |---|---|---|
 | **Frontend** | GitHub Pages (öffentlich, HTTPS) | `.github/workflows/deploy.yml`, automatisch bei Push auf `main` |
-| **Backend** | Christians 24/7-Rechner | native Java-Jar (Windows, aktuell) **oder** Docker; im Heimnetz direkt, von unterwegs über `tailscale serve` |
+| **Backend** | Christians Windows-Rechner, **bei Bedarf** | native Java-Jar (Windows) **oder** Docker; im Heimnetz direkt, von unterwegs über `tailscale serve` |
 
-Die Pages-Version läuft ohne Backend (nur Offline-`.ksong`).
+Die Pages-Version läuft ohne Backend (nur Offline-`.ksong`). Das Backend wird
+**nicht dauerhaft** betrieben – es wird nur gestartet, wenn der LAN-Song-Download
+(`/songs`) oder der volle Client-Server-Betrieb gebraucht wird (siehe unten).
 
 Es gibt zwei Wege, wie Songs aufs Handy kommen:
 
@@ -24,9 +26,11 @@ Es gibt zwei Wege, wie Songs aufs Handy kommen:
 Kein Tailscale, kein Zertifikat. Die HTTPS-App lädt **nicht** selbst vom Backend
 (das wäre Mixed Content) — der Download läuft über direkte Browser-Navigation.
 
-1. **Backend läuft** (siehe „Backend starten — nativ auf diesem Windows-Rechner").
-   Beim `install` öffnet das Skript die Windows-Firewall für TCP 8080 (privates
-   Netz); sonst einmal elevated: `scripts\backend-service.ps1 allow-lan`.
+1. **Backend starten** (siehe „Backend starten — nativ auf diesem Windows-Rechner"):
+   `scripts\backend-service.ps1 start` (beim ersten Mal bzw. nach Backend-Änderungen
+   `... update`, das baut die Jar neu). Damit das Handy es im WLAN erreicht, muss
+   die Windows-Firewall TCP 8080 (privates Netz) durchlassen – einmalig elevated:
+   `scripts\backend-service.ps1 allow-lan`.
 2. **Songs ablegen**: `.ksong`-Dateien nach `C:\ki\karaoke-app\share\` kopieren
    (`Copy-Item konverter\output\<name>\song.ksong share\<name>.ksong`). Der
    angezeigte Titel kommt aus dem `manifest.json` im Bundle.
@@ -42,15 +46,17 @@ unterwegs. Scores bleiben pro Gerät lokal.
 
 ---
 
-## Backend starten — nativ auf diesem Windows-Rechner (aktuell in Betrieb)
+## Backend starten — nativ auf diesem Windows-Rechner (bei Bedarf)
 
-Kein Docker nötig. Voraussetzung: Java 21 (Temurin, ist installiert).
+Das Backend läuft **nicht dauerhaft**. Bei Bedarf manuell starten, danach wieder
+stoppen. Kein Docker nötig, Voraussetzung: Java 21 (Temurin, ist installiert).
 
-`scripts\backend-service.ps1` erledigt Build, Deploy und Autostart:
+`scripts\backend-service.ps1` erledigt Build, Deploy und Start/Stop:
 
 ```powershell
 # aus C:\ki\karaoke-app
-powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 update      # baut + startet neu
+powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 start       # startet die vorhandene Jar
+powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 update      # baut neu + startet neu
 powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 status
 powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 stop
 ```
@@ -62,7 +68,11 @@ powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 stop
   `deploy\logs\backend.log` (rotiert, 7 Tage). `deploy\` ist gitignored.
 - Health: `curl http://localhost:8080/actuator/health` → `{"status":"UP"}`.
 
-### Autostart / 24/7
+### Optional: Autostart / 24/7 einrichten
+
+**Aktueller Stand:** kein Autostart eingerichtet, das Backend wird bei Bedarf
+manuell gestartet. Die folgenden Schritte nur ausführen, wenn es doch dauerhaft
+laufen soll.
 
 `install` versucht zuerst einen **Scheduled Task** (Trigger: Anmeldung + Systemstart,
 Auto-Neustart bei Absturz). Das braucht **eine PowerShell "als Administrator"**:
@@ -77,9 +87,9 @@ powershell -ExecutionPolicy Bypass -File scripts\backend-service.ps1 install -Ru
 
 Ohne Admin fällt das Skript automatisch auf eine **Autostart-Verknüpfung** zurück
 (`shell:startup` → `start-backend-hidden.vbs`): startet bei jeder Anmeldung, aber
-**kein** automatischer Neustart nach einem Absturz. Das ist der aktuelle Stand.
+**kein** automatischer Neustart nach einem Absturz.
 
-Manuell umschalten: `... install-startup` bzw. `... uninstall` / `... uninstall-startup`.
+Wieder abschalten: `... uninstall` bzw. `... uninstall-startup`.
 
 ### Updaten
 
