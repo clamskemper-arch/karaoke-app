@@ -27,7 +27,13 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'de' },
       link: [
-        { rel: 'apple-touch-icon', href: `${baseURL}apple-touch-icon-180x180.png` }
+        { rel: 'apple-touch-icon', href: `${baseURL}apple-touch-icon-180x180.png` },
+        // Statisch in den <head> der generierten index.html - ohne verlinktes
+        // Manifest erkennt der Browser die Seite nicht als installierbare PWA
+        // und bietet nur eine einfache Startbildschirm-Verknuepfung an. Der
+        // <VitePwaManifest>-Weg von @vite-pwa/nuxt wuerde den Link bei
+        // `ssr: false` erst clientseitig setzen.
+        { rel: 'manifest', href: `${baseURL}manifest.webmanifest` }
       ]
     }
   },
