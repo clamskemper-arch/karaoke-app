@@ -152,7 +152,7 @@ const songFinished = computed(() =>
 // Mikrofon + Live-Scoring (siehe usePitchDetector / useSingingScore) - jetzt
 // gegen die Lyrics/Zeit der gewaehlten Stimme statt fest verdrahtet
 const { currentHz, isActive: isMicActive, errorMessage: micError, level: micLevel, deviceLabel: micDevice, start: startMic, stop: stopMic } = usePitchDetector()
-const { percentage, combo, bestCombo, feedback, wordResults } = useSingingScore(lines, mixer.currentTime, currentHz, isMicActive)
+const { percentage, combo, bestCombo, feedback, wordResults, trail } = useSingingScore(lines, mixer.currentTime, currentHz, isMicActive)
 
 function toggleMic() {
   if (isMicActive.value) {
@@ -494,6 +494,14 @@ async function saveScore() {
           Gespeichert als {{ playerName.trim() }}.
         </div>
       </div>
+
+      <SongReviewHighway
+        v-if="showRecap"
+        :lines="lines ?? []"
+        :word-results="wordResults"
+        :trail="trail"
+        :duration="mixer.duration.value"
+      />
 
       <SongRecap
         v-if="showRecap"

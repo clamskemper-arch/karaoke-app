@@ -14,6 +14,12 @@ export interface WordResult {
   state: WordHitState
 }
 
+export interface TrailPoint {
+  t: number
+  midi: number | null
+  hit: boolean | null
+}
+
 const POINTS_PER_SECOND = 10
 const PERFECT_TOLERANCE = 1 // Halbtoene
 const GOOD_TOLERANCE = 3
@@ -26,7 +32,9 @@ function wordKey(w: Pick<Word, 'start'>): string {
  * Bewertet die live per Mikrofon erkannte Tonhoehe gegen die Zielnoten aus
  * lyrics.json. Wertet bei jeder Aenderung von currentTime (getrieben vom
  * Playback-Tick in songs/[id].vue) das jeweils aktive Wort aus und sammelt
- * Punkte, solange das Mikrofon aktiv ist.
+ * Punkte, solange das Mikrofon aktiv ist. Schreibt dabei auch wordResults
+ * (Treffer/Verfehlt pro Wort) und trail (komplette Tonhoehen-Spur) mit, fuer
+ * den durchspulbaren Rueckblick nach Songende (SongReviewHighway.vue).
  */
 export function useSingingScore(
   lines: Ref<Line[] | null | undefined>,
@@ -46,6 +54,11 @@ export function useSingingScore(
   // Reaktivitaet auf wordResults ausloesen.
   const wordSamples = reactive(new Map<string, { hits: number, total: number }>())
 
+  // Komplette Tonhoehen-Spur ueber den ganzen Song (nicht wie im NoteHighway
+  // waehrend des Abspielens auf ein paar Sekunden getrimmt) - Grundlage fuer
+  // den durchspulbaren Rueckblick nach Songende, siehe SongReviewHighway.vue.
+  const trail = ref<TrailPoint[]>([])
+
   let lastTime = -1
 
   function reset() {
@@ -55,6 +68,7 @@ export function useSingingScore(
     bestCombo.value = 0
     feedback.value = null
     wordSamples.clear()
+    trail.value = []
     lastTime = -1
   }
 
@@ -84,19 +98,27 @@ export function useSingingScore(
     }
 
     const activeWord = findActiveWord(t)
+    const userMidi = currentHz.value ? hzToMidi(currentHz.value) : null
+
     if (!activeWord || activeWord.midi === null) {
       feedback.value = null
+      // Kein Zielton gerade faellig (z.B. Instrumental-Passage) - trotzdem
+      // mitschreiben, damit die Spur im Rueckblick nicht abreisst.
+      trail.value.push({ t, midi: userMidi, hit: null })
       return
     }
 
     maxScore.value += POINTS_PER_SECOND * dt
+    let hit: boolean | null = null
 
-    if (currentHz.value) {
-      const diff = Math.abs(hzToMidi(currentHz.value) - activeWord.midi)
+    if (userMidi !== null) {
+      const diff = Math.abs(userMidi - activeWord.midi)
+      hit = diff <= PERFECT_TOLERANCE
+
       const key = wordKey(activeWord)
       const rec = wordSamples.get(key) ?? { hits: 0, total: 0 }
       rec.total++
-      if (diff <= PERFECT_TOLERANCE) rec.hits++
+      if (hit) rec.hits++
       wordSamples.set(key, rec)
 
       if (diff <= PERFECT_TOLERANCE) {
@@ -116,6 +138,8 @@ export function useSingingScore(
       combo.value = 0
       feedback.value = 'off'
     }
+
+    trail.value.push({ t, midi: userMidi, hit })
   })
 
   watch(isMicActive, (active) => {
@@ -146,5 +170,5 @@ export function useSingingScore(
     return out
   })
 
-  return { score, percentage, combo, bestCombo, feedback, wordResults, reset }
+  return { score, percentage, combo, bestCombo, feedback, wordResults, trail, reset }
 }
