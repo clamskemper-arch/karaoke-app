@@ -47,10 +47,18 @@ Leer lassen = reiner Offline-Betrieb mit importierten `.ksong`-Songs.
 cd konverter
 python -m venv venv && venv\Scripts\activate
 pip install -r requirements.txt              # ffmpeg muss im PATH sein
-python convert.py       "input/song.mp4" "output/song" --lyrics "input/song-lyrics.txt"
-python convert_midi.py  "input/amazing-grace.kar" "output/amazing-grace"
-python convert_choir.py "input/lied.json" "output/lied"
+python convert.py               "input/song.mp4" "output/song" --lyrics "input/song-lyrics.txt"
+python convert_midi.py          "input/amazing-grace.kar" "output/amazing-grace"
+python convert_choir.py         "input/lied.json" "output/lied"
+python convert_musicxml_choir.py "input/lied/lied.mxl" "output/lied"
 ```
+`convert_musicxml_choir.py` (29.09.2026) ist der dritte Weg für Chorsätze: liest
+Noten, Timing *und* Text direkt aus einer mehrstimmigen MusicXML-/`.mxl`-Datei
+(z.B. MuseScore-Export mit eigenem `<part>` je Stimme) – anders als
+`convert_choir.py` also ganz ohne isolierte Audioaufnahme pro Stimme, und
+präziser als der MIDI-Weg, weil Ton und Text aus derselben Quelle kommen statt
+gematcht werden zu müssen. `--verse N` wählt bei mehreren hinterlegten
+Strophen/Textunterlagen (z.B. deutsch/englisch) die gewünschte.
 Jeder Lauf schreibt zusätzlich ein `song.ksong` (ZIP mit Manifest + AAC-Audio + Lyrics)
 für den Offline-Import in die App.
 
