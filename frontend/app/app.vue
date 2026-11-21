@@ -27,6 +27,15 @@ useSeoMeta({
       </template>
 
       <template #right>
+        <UButton
+          to="/einsingen"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-mic"
+          size="sm"
+        >
+          Einsingen
+        </UButton>
         <UColorModeButton />
       </template>
     </UHeader>
