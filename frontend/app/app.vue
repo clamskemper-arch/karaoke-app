@@ -12,6 +12,10 @@ useSeoMeta({
   title: 'Karaoke App',
   description: 'Karaoke fürs Chorüben - Songs registrieren, abspielen, Töne treffen.'
 })
+
+// Bildschirm bleibt an, solange die App offen ist - sonst sperrt sich das
+// Handy mitten im Lied oder beim Einsingen, weil man es ja nicht anfasst.
+useWakeLock()
 </script>
 
 <template>
